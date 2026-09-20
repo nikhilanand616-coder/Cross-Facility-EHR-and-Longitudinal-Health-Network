@@ -1,0 +1,6 @@
+{
+  "name": "Cross-Facility EHR & Longitudinal Health Network",
+  "description": "Comprehensive longitudinal electronic health record platform supporting multi-tier facility referrals, diagnostic coordination, medicine inventory visibility, offline sync, AI clinical diagnostics, multilingual patient intake kiosk, and HIPAA compliance.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

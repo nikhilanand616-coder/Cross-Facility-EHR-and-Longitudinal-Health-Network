@@ -1,0 +1,602 @@
+{
+  "entities": {
+    "Facility": {
+      "title": "Facility",
+      "description": "Pan-India public healthcare registry node including Sub-Centres, PHCs, Rural Hospitals, and District Hospitals",
+      "type": "object",
+      "properties": {
+        "facilityId": {
+          "type": "string",
+          "description": "Unique identifier for the healthcare facility (e.g. FAC-MH-PUN-001)",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Full registered name of the healthcare facility",
+          "maxLength": 150
+        },
+        "tier": {
+          "type": "string",
+          "description": "Tier level in public healthcare hierarchy",
+          "enum": ["sub_centre", "phc", "rural_hospital", "district_hospital"]
+        },
+        "state": {
+          "type": "string",
+          "description": "Indian State or Union Territory",
+          "maxLength": 64
+        },
+        "district": {
+          "type": "string",
+          "description": "Administrative district name",
+          "maxLength": 64
+        },
+        "pincode": {
+          "type": "string",
+          "description": "6-digit postal code of the facility",
+          "maxLength": 6,
+          "pattern": "^[1-9][0-9]{5}$"
+        },
+        "coordinates": {
+          "type": "object",
+          "description": "Firestore GeoPoint with latitude and longitude"
+        },
+        "operationalStatus": {
+          "type": "string",
+          "description": "Current facility operational status",
+          "enum": ["active", "offline", "over capacity"]
+        },
+        "inventorySummary": {
+          "type": "object",
+          "description": "Map containing essentialDrugsStock and diagnosticLabAvailable booleans"
+        },
+        "activeStaffCount": {
+          "type": "object",
+          "description": "Map containing counts for doctors, nurses, and ashaWorkers"
+        }
+      },
+      "required": [
+        "facilityId",
+        "name",
+        "tier",
+        "state",
+        "district",
+        "pincode",
+        "coordinates",
+        "operationalStatus",
+        "inventorySummary",
+        "activeStaffCount"
+      ]
+    },
+    "Patient": {
+      "title": "Patient",
+      "description": "Longitudinal patient record with Ayushman Bharat Health Account (ABHA)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "abhaId": { "type": "string", "maxLength": 64 },
+        "abhaNumber": { "type": "string", "maxLength": 20, "description": "14-digit formatted ABHA number (XX-XXXX-XXXX-XXXX)" },
+        "rawAbhaNumber": { "type": "string", "maxLength": 14, "description": "14-digit unhyphenated ABHA number" },
+        "abhaAddress": { "type": "string", "maxLength": 100, "description": "PHR address ending with @abdm or @sbx" },
+        "name": { "type": "string", "maxLength": 120 },
+        "age": { "type": "number" },
+        "gender": { "type": "string", "enum": ["Female", "Male", "Other"] },
+        "primaryFacilityId": { "type": "string", "maxLength": 64 },
+        "village": { "type": "string", "maxLength": 100 },
+        "district": { "type": "string", "maxLength": 64 },
+        "state": { "type": "string", "maxLength": 64 },
+        "pincode": { "type": "string", "maxLength": 6 },
+        "kycStatus": { "type": "string", "enum": ["PENDING", "VERIFIED", "FAILED"] },
+        "authMethods": { "type": "array", "items": { "type": "string" } },
+        "linkedAt": { "type": "string" },
+        "abdmMetadata": { "type": "object", "description": "ABDM registration metadata, consent references, and care contexts" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "age", "gender", "primaryFacilityId"]
+    },
+    "TriageTicket": {
+      "title": "TriageTicket",
+      "description": "Frontline clinical triage record created by ASHA/ANM workers at Sub-Centres or PHCs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "patientId": { "type": "string", "maxLength": 64 },
+        "patientName": { "type": "string", "maxLength": 120 },
+        "facilityId": { "type": "string", "maxLength": 64 },
+        "urgencyLevel": { "type": "string", "enum": ["Green", "Yellow", "Red"] },
+        "chiefComplaint": { "type": "string", "maxLength": 1000 },
+        "systolic": { "type": "number" },
+        "diastolic": { "type": "number" },
+        "heartRate": { "type": "number" },
+        "spo2": { "type": "number" },
+        "temperature": { "type": "number" },
+        "createdOffline": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "serverTimestamp": { "type": "object" }
+      },
+      "required": ["id", "patientName", "facilityId", "urgencyLevel"]
+    },
+    "MedicineStockLog": {
+      "title": "MedicineStockLog",
+      "description": "Log of drug inventory changes recorded at frontline facilities",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "facilityId": { "type": "string", "maxLength": 64 },
+        "medicineId": { "type": "string", "maxLength": 64 },
+        "medicineName": { "type": "string", "maxLength": 120 },
+        "quantityChange": { "type": "number" },
+        "resultingStock": { "type": "number" },
+        "reason": { "type": "string", "maxLength": 200 },
+        "loggedBy": { "type": "string", "maxLength": 100 },
+        "createdOffline": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "serverTimestamp": { "type": "object" }
+      },
+      "required": ["id", "facilityId", "medicineId", "medicineName", "resultingStock"]
+    },
+    "Referral": {
+      "title": "Referral",
+      "description": "Cross-facility referral slip issued for higher-tier escalation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "patientId": { "type": "string", "maxLength": 64 },
+        "patientName": { "type": "string", "maxLength": 120 },
+        "originatingFacilityId": { "type": "string", "maxLength": 64 },
+        "destinationFacilityId": { "type": "string", "maxLength": 64 },
+        "urgency": { "type": "string", "enum": ["routine", "urgent", "emergency"] },
+        "status": { "type": "string", "enum": ["initiated", "in_transit", "received", "completed", "cancelled"] },
+        "clinicalReason": { "type": "string", "maxLength": 1000 },
+        "specialtyRequired": { "type": "string", "maxLength": 100 },
+        "transportMode": { "type": "string", "maxLength": 100 },
+        "createdOffline": { "type": "boolean" },
+        "initiatedDate": { "type": "string" },
+        "serverTimestamp": { "type": "object" }
+      },
+      "required": ["id", "patientName", "originatingFacilityId", "destinationFacilityId", "urgency", "status"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Frontline healthcare follow-up task automatically assigned to ASHA worker or Sub-Centre node",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "patientId": { "type": "string", "maxLength": 64 },
+        "patientName": { "type": "string", "maxLength": 120 },
+        "patientPhone": { "type": "string", "maxLength": 20 },
+        "assignedTo": { "type": "string", "maxLength": 100 },
+        "assignedType": { "type": "string", "enum": ["asha_worker", "sub_centre"] },
+        "assignedFacilityId": { "type": "string", "maxLength": 64 },
+        "type": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["pending", "in_progress", "completed", "missed", "escalated"] },
+        "priority": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "dueDate": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "patientId", "patientName", "assignedTo", "status", "priority"]
+    },
+    "FollowUpAppointment": {
+      "title": "FollowUpAppointment",
+      "description": "Scheduled clinic follow-up appointment tracked across frontline nodes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "patientId": { "type": "string", "maxLength": 64 },
+        "patientName": { "type": "string", "maxLength": 120 },
+        "patientPhone": { "type": "string", "maxLength": 20 },
+        "facilityId": { "type": "string", "maxLength": 64 },
+        "district": { "type": "string", "maxLength": 64 },
+        "scheduledDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["scheduled", "attended", "missed", "escalated"] },
+        "riskLevel": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH"] },
+        "missedAt": { "type": "string" },
+        "escalatedAt": { "type": "string" },
+        "escalatedTo": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "patientId", "patientName", "facilityId", "scheduledDate", "status"]
+    },
+    "EscalationAlert": {
+      "title": "EscalationAlert",
+      "description": "High-risk missed follow-up escalation alert dispatched to District Medical Officer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "appointmentId": { "type": "string", "maxLength": 64 },
+        "patientId": { "type": "string", "maxLength": 64 },
+        "patientName": { "type": "string", "maxLength": 120 },
+        "district": { "type": "string", "maxLength": 64 },
+        "recipientRole": { "type": "string", "maxLength": 100 },
+        "recipientPhone": { "type": "string", "maxLength": 20 },
+        "smsProvider": { "type": "string", "enum": ["twilio", "fast2sms", "mockup"] },
+        "smsStatus": { "type": "string", "enum": ["sent", "simulated", "failed"] },
+        "messageBody": { "type": "string", "maxLength": 1000 },
+        "dispatchedAt": { "type": "string" }
+      },
+      "required": ["id", "appointmentId", "patientId", "recipientPhone", "smsStatus"]
+    },
+    "FacilityInventory": {
+      "title": "FacilityInventory",
+      "description": "Real-time essential medicine and supply stock records for lower-tier facilities (PHCs and Sub-Centres)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "facilityId": { "type": "string", "maxLength": 64 },
+        "facilityName": { "type": "string", "maxLength": 150 },
+        "district": { "type": "string", "maxLength": 64 },
+        "tier": { "type": "string", "enum": ["sub_centre", "phc", "rural_hospital", "district_hospital"] },
+        "medicineId": { "type": "string", "maxLength": 64 },
+        "medicineName": { "type": "string", "maxLength": 120 },
+        "category": { "type": "string", "maxLength": 64 },
+        "currentStock": { "type": "number" },
+        "minThreshold": { "type": "number" },
+        "unit": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "enum": ["optimal", "low", "stockout"] },
+        "lastUpdated": { "type": "string" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["id", "facilityId", "medicineId", "medicineName", "currentStock", "status"]
+    },
+    "DiagnosticEquipment": {
+      "title": "DiagnosticEquipment",
+      "description": "Diagnostic and cold-chain equipment health and operational status at PHCs and Sub-Centres",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "facilityId": { "type": "string", "maxLength": 64 },
+        "facilityName": { "type": "string", "maxLength": 150 },
+        "district": { "type": "string", "maxLength": 64 },
+        "tier": { "type": "string", "enum": ["sub_centre", "phc", "rural_hospital", "district_hospital"] },
+        "name": { "type": "string", "maxLength": 150 },
+        "category": { "type": "string", "enum": ["laboratory", "cold_chain", "maternal_care", "point_of_care", "imaging"] },
+        "status": { "type": "string", "enum": ["operational", "maintenance_needed", "breakdown", "calibration_due"] },
+        "uptimePercent": { "type": "number" },
+        "serialNumber": { "type": "string", "maxLength": 64 },
+        "lastServicedDate": { "type": "string" },
+        "reportedIssue": { "type": "string", "maxLength": 500 },
+        "technicianContact": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["id", "facilityId", "name", "category", "status"]
+    },
+    "ResourceTransfer": {
+      "title": "ResourceTransfer",
+      "description": "District Medical Officer atomic inventory re-route transfer ledger entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "transferNumber": { "type": "string", "maxLength": 64 },
+        "sourceFacilityId": { "type": "string", "maxLength": 64 },
+        "sourceFacilityName": { "type": "string", "maxLength": 150 },
+        "targetFacilityId": { "type": "string", "maxLength": 64 },
+        "targetFacilityName": { "type": "string", "maxLength": 150 },
+        "district": { "type": "string", "maxLength": 64 },
+        "medicineId": { "type": "string", "maxLength": 64 },
+        "medicineName": { "type": "string", "maxLength": 120 },
+        "quantity": { "type": "number" },
+        "unit": { "type": "string", "maxLength": 32 },
+        "reason": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "enum": ["approved", "in_transit", "delivered"] },
+        "authorizedBy": { "type": "string", "maxLength": 120 },
+        "digitalSignature": { "type": "string", "maxLength": 100 },
+        "sourceStockBefore": { "type": "number" },
+        "sourceStockAfter": { "type": "number" },
+        "targetStockBefore": { "type": "number" },
+        "targetStockAfter": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "serverTimestamp": { "type": "object" }
+      },
+      "required": ["id", "sourceFacilityId", "targetFacilityId", "medicineId", "quantity", "status", "authorizedBy"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Multi-role HealthTech user profile enforcing RBAC for Patient, FrontlineWorker, and MedicalOfficer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 120 },
+        "name": { "type": "string", "maxLength": 120 },
+        "role": {
+          "type": "string",
+          "enum": ["Patient", "FrontlineWorker", "MedicalOfficer", "Admin"]
+        },
+        "assignedFacilityId": { "type": "string", "maxLength": 64 },
+        "designatedDistrict": { "type": "string", "maxLength": 64 },
+        "patientId": { "type": "string", "maxLength": 64 },
+        "phone": { "type": "string", "maxLength": 20 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "email", "name", "role"]
+    },
+    "TeleconsultRoom": {
+      "title": "TeleconsultRoom",
+      "description": "WebRTC 1-on-1 teleconsultation signaling channel and active session state",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string", "maxLength": 128 },
+        "patientId": { "type": "string", "maxLength": 128 },
+        "patientName": { "type": "string", "maxLength": 120 },
+        "doctorId": { "type": "string", "maxLength": 128 },
+        "doctorName": { "type": "string", "maxLength": 120 },
+        "facilityId": { "type": "string", "maxLength": 64 },
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "calling", "connected", "ended"]
+        },
+        "bandwidthMode": {
+          "type": "string",
+          "enum": ["video", "voice_only", "text_only"]
+        },
+        "offer": { "type": "object" },
+        "answer": { "type": "object" },
+        "connectionMetrics": { "type": "object" },
+        "triageNotes": { "type": "object" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["roomId", "patientId", "status"]
+    },
+    "PHCQueueItem": {
+      "title": "PHCQueueItem",
+      "description": "Primary Health Centre patient queue item with mathematical wait time predictions and emergency escalation preemption",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "tokenNumber": { "type": "string", "maxLength": 32 },
+        "patientId": { "type": "string", "maxLength": 64 },
+        "patientName": { "type": "string", "maxLength": 120 },
+        "patientAge": { "type": "number" },
+        "patientGender": { "type": "string", "enum": ["Female", "Male", "Other"] },
+        "facilityId": { "type": "string", "maxLength": 64 },
+        "facilityName": { "type": "string", "maxLength": 150 },
+        "department": { "type": "string", "maxLength": 100 },
+        "checkInTime": { "type": "string" },
+        "appointmentId": { "type": "string", "maxLength": 64 },
+        "isWalkIn": { "type": "boolean" },
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "in_consultation", "completed", "no_show", "referred", "escalated"]
+        },
+        "assignedRoom": { "type": "string", "maxLength": 64 },
+        "assignedDoctor": { "type": "string", "maxLength": 120 },
+        "consultationStartTime": { "type": "string" },
+        "consultationDurationMinutes": { "type": "number" },
+        "expectedConsultationDuration": { "type": "number" },
+        "esiTier": { "type": "number" },
+        "urgencyScore": { "type": "number" },
+        "isEmergencyEscalated": { "type": "boolean" },
+        "emergencyReason": { "type": "string", "maxLength": 500 },
+        "geminiTriageSummary": { "type": "object" },
+        "priorityScore": { "type": "number" },
+        "queuePosition": { "type": "number" },
+        "estimatedWaitMinutes": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "tokenNumber", "patientId", "patientName", "facilityId", "status"]
+    },
+    "MedicineDistributionPlan": {
+      "title": "MedicineDistributionPlan",
+      "description": "Weekly tiered essential medicine distribution and transportation optimization plan",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "planNumber": { "type": "string", "maxLength": 64 },
+        "district": { "type": "string", "maxLength": 64 },
+        "state": { "type": "string", "maxLength": 64 },
+        "weekNumber": { "type": "number" },
+        "year": { "type": "number" },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "optimized", "approved", "dispatched", "in_transit", "completed"]
+        },
+        "algorithm": { "type": "string", "maxLength": 100 },
+        "totalSupplyUnits": { "type": "number" },
+        "totalDemandUnits": { "type": "number" },
+        "totalAllocatedUnits": { "type": "number" },
+        "unmetDemandUnits": { "type": "number" },
+        "totalDistanceKm": { "type": "number" },
+        "totalTransitMinutes": { "type": "number" },
+        "totalTransportationCostInr": { "type": "number" },
+        "activeVehiclesCount": { "type": "number" },
+        "supplyDepotsCount": { "type": "number" },
+        "demandEndpointsCount": { "type": "number" },
+        "routesCount": { "type": "number" },
+        "ruralBarriersEncountered": { "type": "object" },
+        "allocationsMatrix": { "type": "object" },
+        "approvedBy": { "type": "string", "maxLength": 120 },
+        "generatedAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "planNumber", "district", "status", "totalSupplyUnits", "totalDemandUnits"]
+    },
+    "DrugRequisition": {
+      "title": "DrugRequisition",
+      "description": "Weekly essential drug requisition demand submitted by peripheral healthcare facilities (Sub-Centres, PHCs, RHs)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "requisitionNumber": { "type": "string", "maxLength": 64 },
+        "facilityId": { "type": "string", "maxLength": 64 },
+        "facilityName": { "type": "string", "maxLength": 150 },
+        "facilityTier": {
+          "type": "string",
+          "enum": ["sub_centre", "phc", "rural_hospital", "district_hospital"]
+        },
+        "district": { "type": "string", "maxLength": 64 },
+        "medicineId": { "type": "string", "maxLength": 64 },
+        "medicineName": { "type": "string", "maxLength": 120 },
+        "category": { "type": "string", "maxLength": 64 },
+        "criticalityTier": {
+          "type": "string",
+          "enum": ["critical_life_saving", "essential_acute", "standard_chronic", "wellness_supplement"]
+        },
+        "coldChainRequired": { "type": "boolean" },
+        "currentStockOnHand": { "type": "number" },
+        "minThreshold": { "type": "number" },
+        "requestedQuantity": { "type": "number" },
+        "allocatedQuantity": { "type": "number" },
+        "unit": { "type": "string", "maxLength": 32 },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "allocated", "dispatched", "delivered", "partially_fulfilled"]
+        },
+        "weekNumber": { "type": "number" },
+        "year": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "requisitionNumber", "facilityId", "medicineId", "requestedQuantity", "status"]
+    },
+    "TransitRoute": {
+      "title": "TransitRoute",
+      "description": "Optimized delivery route connecting supply hubs down to peripheral Sub-Centres minimizing rural barrier transit times",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "routeNumber": { "type": "string", "maxLength": 64 },
+        "planId": { "type": "string", "maxLength": 128 },
+        "district": { "type": "string", "maxLength": 64 },
+        "originFacilityId": { "type": "string", "maxLength": 64 },
+        "originFacilityName": { "type": "string", "maxLength": 150 },
+        "originTier": {
+          "type": "string",
+          "enum": ["district_hospital", "rural_hospital"]
+        },
+        "vehicleId": { "type": "string", "maxLength": 64 },
+        "vehicleType": {
+          "type": "string",
+          "enum": ["refrigerated_van", "all_terrain_4x4", "standard_distribution_truck"]
+        },
+        "vehicleCapacityUnits": { "type": "number" },
+        "utilizedCapacityUnits": { "type": "number" },
+        "totalDistanceKm": { "type": "number" },
+        "totalTransitMinutes": { "type": "number" },
+        "totalFuelAndWearCostInr": { "type": "number" },
+        "stopsCount": { "type": "number" },
+        "stops": { "type": "object" },
+        "geographicBarriersTraversed": { "type": "object" },
+        "status": {
+          "type": "string",
+          "enum": ["scheduled", "dispatched", "en_route", "completed"]
+        },
+        "dispatchedAt": { "type": "string" },
+        "completedAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "routeNumber", "planId", "originFacilityId", "vehicleType", "status"]
+    },
+    "PostDischargeAdherence": {
+      "title": "PostDischargeAdherence",
+      "description": "Post-discharge daily medication adherence, symptom tracking and ASHA escalation for high-risk chronic patients",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "patientId": { "type": "string", "maxLength": 64 },
+        "patientName": { "type": "string", "maxLength": 120 },
+        "abhaAddress": { "type": "string", "maxLength": 100 },
+        "age": { "type": "number" },
+        "gender": { "type": "string", "enum": ["Female", "Male", "Other"] },
+        "phone": { "type": "string", "maxLength": 20 },
+        "village": { "type": "string", "maxLength": 100 },
+        "district": { "type": "string", "maxLength": 64 },
+        "dischargeDate": { "type": "string" },
+        "dischargingFacilityId": { "type": "string", "maxLength": 64 },
+        "dischargingFacilityName": { "type": "string", "maxLength": 150 },
+        "chronicConditions": { "type": "array", "items": { "type": "string" } },
+        "riskTier": { "type": "string", "enum": ["critical", "high", "moderate"] },
+        "assignedFrontlineWorker": { "type": "object" },
+        "prescribedRegimen": { "type": "array", "items": { "type": "object" } },
+        "checkinHistory": { "type": "array", "items": { "type": "object" } },
+        "consecutiveMissedDays": { "type": "number" },
+        "lastCheckinDate": { "type": "string" },
+        "overallAdherenceRatePercent": { "type": "number" },
+        "alertEscalationStatus": { "type": "string", "enum": ["normal", "warning", "escalated_to_asha", "resolved"] },
+        "lastEscalationSentAt": { "type": "string" },
+        "escalationCount": { "type": "number" },
+        "emergencyActionProtocol": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "patientId", "patientName", "dischargingFacilityId", "assignedFrontlineWorker", "chronicConditions"]
+    }
+  },
+  "firestore": {
+    "/chronic_adherence/{adherenceId}": {
+      "schema": { "$ref": "#/entities/PostDischargeAdherence" },
+      "description": "Daily post-discharge adherence records with automated SMS triggers to local frontline ASHA workers for 3 consecutive missed check-ins"
+    },
+    "/phc_queue_items/{itemId}": {
+      "schema": { "$ref": "#/entities/PHCQueueItem" },
+      "description": "Real-time Primary Health Centre patient queue items dynamically optimized with M/M/c priority queuing"
+    },
+    "/medicine_distribution_plans/{planId}": {
+      "schema": { "$ref": "#/entities/MedicineDistributionPlan" },
+      "description": "Weekly tiered medicine distribution plans optimized via Vogel's Approximation Method"
+    },
+    "/drug_requisitions/{requisitionId}": {
+      "schema": { "$ref": "#/entities/DrugRequisition" },
+      "description": "Tiered facility drug replenishment requisitions across District Hospitals, PHCs, and Sub-Centres"
+    },
+    "/transit_routes/{routeId}": {
+      "schema": { "$ref": "#/entities/TransitRoute" },
+      "description": "Physical multi-stop delivery routes minimizing rural barrier transit times"
+    },
+    "/teleconsult_rooms/{roomId}": {
+      "schema": { "$ref": "#/entities/TeleconsultRoom" },
+      "description": "WebRTC peer-to-peer signaling rooms with active status, ICE candidates, and fallback modes"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Role-based access control user profile containing assigned facility or designated district"
+    },
+    "/facilities/{facilityId}": {
+      "schema": { "$ref": "#/entities/Facility" },
+      "description": "Registry of public healthcare facilities across Indian states and districts"
+    },
+    "/patients/{patientId}": {
+      "schema": { "$ref": "#/entities/Patient" },
+      "description": "Longitudinal patient records"
+    },
+    "/triage_tickets/{ticketId}": {
+      "schema": { "$ref": "#/entities/TriageTicket" },
+      "description": "Frontline clinical triage records and vitals"
+    },
+    "/medicine_stock_logs/{logId}": {
+      "schema": { "$ref": "#/entities/MedicineStockLog" },
+      "description": "Pharmacy stock updates and dispensary consumption logs"
+    },
+    "/referrals/{referralId}": {
+      "schema": { "$ref": "#/entities/Referral" },
+      "description": "Cross-tier clinical referrals and transport dispatch slips"
+    },
+    "/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/Task" },
+      "description": "Frontline ASHA and Sub-Centre follow-up tasks"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": { "$ref": "#/entities/FollowUpAppointment" },
+      "description": "Follow-up clinical appointments across district network"
+    },
+    "/escalation_alerts/{alertId}": {
+      "schema": { "$ref": "#/entities/EscalationAlert" },
+      "description": "Audit trail of SMS alerts dispatched to Medical Officers"
+    },
+    "/facility_inventory/{invId}": {
+      "schema": { "$ref": "#/entities/FacilityInventory" },
+      "description": "Real-time essential medicine inventory for district PHCs and Sub-Centres"
+    },
+    "/diagnostic_equipment/{equipmentId}": {
+      "schema": { "$ref": "#/entities/DiagnosticEquipment" },
+      "description": "Diagnostic equipment health and calibration status across district facilities"
+    },
+    "/inventory_transfers/{transferId}": {
+      "schema": { "$ref": "#/entities/ResourceTransfer" },
+      "description": "DMO atomic inventory re-routing ledger transactions"
+    }
+  }
+}

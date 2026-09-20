@@ -1,0 +1,412 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. GLOBAL DEFAULT-DENY CATCH-ALL
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. HELPER FUNCTIONS & PRIMITIVES
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Lookup user profile in /users/{uid}
+    function hasUserDoc() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function getUserRole() {
+      return hasUserDoc() ? getUserDoc().role : 'Anonymous';
+    }
+
+    function getUserFacilityId() {
+      return hasUserDoc() ? getUserDoc().assignedFacilityId : '';
+    }
+
+    function getUserDistrict() {
+      return hasUserDoc() ? getUserDoc().designatedDistrict : '';
+    }
+
+    function isPatient() {
+      return isSignedIn() && getUserRole() == 'Patient';
+    }
+
+    function isFrontlineWorker() {
+      return isSignedIn() && getUserRole() == 'FrontlineWorker';
+    }
+
+    function isMedicalOfficer() {
+      return isSignedIn() && getUserRole() == 'MedicalOfficer';
+    }
+
+    // Administrator / Nodal Officer verification
+    function isAdmin() {
+      return isSignedIn() && (
+        (hasUserDoc() && getUserDoc().role == 'Admin') ||
+        request.auth.token.email == 'nikhilanand616@gmail.com'
+      );
+    }
+
+    // 3. SCHEMA VALIDATION BLUEPRINTS
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['id', 'email', 'name', 'role']) &&
+        data.id is string && isValidId(data.id) &&
+        data.email is string && data.email.size() <= 120 &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 120 &&
+        data.role in ['Patient', 'FrontlineWorker', 'MedicalOfficer', 'Admin'];
+    }
+
+    function isValidTriageTicket(data) {
+      return data.keys().hasAll(['id', 'patientName', 'facilityId', 'urgencyLevel']) &&
+        data.id is string && isValidId(data.id) &&
+        data.patientName is string && data.patientName.size() > 0 && data.patientName.size() <= 120 &&
+        data.facilityId is string && isValidId(data.facilityId) &&
+        data.urgencyLevel in ['Green', 'Yellow', 'Red'];
+    }
+
+    function isValidFacilityInventory(data) {
+      return data.keys().hasAll(['id', 'facilityId', 'medicineId', 'medicineName', 'currentStock', 'status']) &&
+        data.id is string && isValidId(data.id) &&
+        data.facilityId is string && isValidId(data.facilityId) &&
+        data.medicineId is string && isValidId(data.medicineId) &&
+        data.medicineName is string && data.medicineName.size() > 0 && data.medicineName.size() <= 120 &&
+        data.currentStock is number && data.currentStock >= 0 &&
+        data.status in ['optimal', 'low', 'stockout'];
+    }
+
+    function isValidMedicineStockLog(data) {
+      return data.keys().hasAll(['id', 'facilityId', 'medicineId', 'medicineName', 'resultingStock']) &&
+        data.id is string && isValidId(data.id) &&
+        data.facilityId is string && isValidId(data.facilityId) &&
+        data.medicineId is string && isValidId(data.medicineId) &&
+        data.medicineName is string && data.medicineName.size() <= 120 &&
+        data.resultingStock is number;
+    }
+
+    function isValidFacility(data) {
+      return data.keys().hasAll([
+        'facilityId', 'name', 'tier', 'state', 'district', 'pincode',
+        'coordinates', 'operationalStatus', 'inventorySummary', 'activeStaffCount'
+      ]) &&
+      data.facilityId is string && isValidId(data.facilityId) &&
+      data.name is string && data.name.size() > 0 && data.name.size() <= 150 &&
+      data.tier in ['sub_centre', 'phc', 'rural_hospital', 'district_hospital'] &&
+      data.state is string && data.state.size() <= 64 &&
+      data.district is string && data.district.size() <= 64 &&
+      data.pincode is string && data.pincode.matches('^[1-9][0-9]{5}$') &&
+      data.operationalStatus in ['active', 'offline', 'over capacity'];
+    }
+
+    function isValidResourceTransfer(data) {
+      return data.keys().hasAll(['id', 'sourceFacilityId', 'targetFacilityId', 'medicineId', 'quantity', 'status', 'authorizedBy']) &&
+        data.id is string && isValidId(data.id) &&
+        data.sourceFacilityId is string && isValidId(data.sourceFacilityId) &&
+        data.targetFacilityId is string && isValidId(data.targetFacilityId) &&
+        data.medicineId is string && isValidId(data.medicineId) &&
+        data.quantity is number && data.quantity > 0 &&
+        data.status in ['approved', 'in_transit', 'delivered'] &&
+        data.authorizedBy is string && data.authorizedBy.size() <= 120;
+    }
+
+    // 4. USER PROFILES & RBAC IDENTITIES
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isSignedIn() && (
+        request.auth.uid == userId ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow list: if isMedicalOfficer() || isAdmin();
+      allow create: if isValidId(userId) && isSignedIn() && request.auth.uid == userId &&
+                       isValidUserProfile(incoming()) &&
+                       (incoming().role == 'Patient' || isAdmin());
+      allow update: if isValidId(userId) && isSignedIn() && request.auth.uid == userId &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().role == existing().role &&
+                       incoming().assignedFacilityId == existing().assignedFacilityId &&
+                       incoming().designatedDistrict == existing().designatedDistrict;
+      allow delete: if isAdmin();
+    }
+
+    // 5. PATIENTS COLLECTION (Strict Self-Access for Patients)
+    match /patients/{patientId} {
+      allow get: if isValidId(patientId) && isSignedIn() && (
+        (isPatient() && (patientId == request.auth.uid || resource.data.id == request.auth.uid)) ||
+        isFrontlineWorker() ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        (isPatient() && resource.data.id == request.auth.uid) ||
+        isFrontlineWorker() ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow create, update: if isValidId(patientId) && isSignedIn() && (
+        isFrontlineWorker() ||
+        isMedicalOfficer() ||
+        isAdmin()
+      ) && incoming().id == patientId;
+      allow delete: if isAdmin();
+    }
+
+    // 6. FRONTLINE TRIAGE TICKETS
+    // FrontlineWorkers can create triage records at their assigned facility node
+    // Patients can only read their own triage records
+    match /triage_tickets/{ticketId} {
+      allow get: if isValidId(ticketId) && isSignedIn() && (
+        (isPatient() && resource.data.patientId == request.auth.uid) ||
+        (isFrontlineWorker() && resource.data.facilityId == getUserFacilityId()) ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        (isPatient() && resource.data.patientId == request.auth.uid) ||
+        (isFrontlineWorker() && resource.data.facilityId == getUserFacilityId()) ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow create: if isValidId(ticketId) && isSignedIn() && isValidTriageTicket(incoming()) &&
+                       incoming().id == ticketId && (
+                         (isFrontlineWorker() && incoming().facilityId == getUserFacilityId()) ||
+                         isMedicalOfficer() ||
+                         isAdmin()
+                       );
+      allow update: if isValidId(ticketId) && isSignedIn() && isValidTriageTicket(incoming()) &&
+                       incoming().id == existing().id && (
+                         (isFrontlineWorker() && existing().facilityId == getUserFacilityId()) ||
+                         isMedicalOfficer() ||
+                         isAdmin()
+                       );
+      allow delete: if isAdmin();
+    }
+
+    // 7. FACILITY INVENTORY
+    // FrontlineWorkers can update inventory at their assigned facility node
+    // MedicalOfficers have read/write access to all facilities in their designated district
+    match /facility_inventory/{invId} {
+      allow get: if isValidId(invId) && isSignedIn() && (
+        (isFrontlineWorker() && resource.data.facilityId == getUserFacilityId()) ||
+        (isMedicalOfficer() && resource.data.district == getUserDistrict()) ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        (isFrontlineWorker() && resource.data.facilityId == getUserFacilityId()) ||
+        (isMedicalOfficer() && resource.data.district == getUserDistrict()) ||
+        isAdmin()
+      );
+      allow create: if isValidId(invId) && isSignedIn() && isValidFacilityInventory(incoming()) &&
+                       incoming().id == invId && (
+                         (isMedicalOfficer() && incoming().district == getUserDistrict()) ||
+                         isAdmin()
+                       );
+      allow update: if isValidId(invId) && isSignedIn() && isValidFacilityInventory(incoming()) &&
+                       incoming().id == existing().id && (
+                         (isFrontlineWorker() &&
+                          existing().facilityId == getUserFacilityId() &&
+                          incoming().facilityId == getUserFacilityId() &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['currentStock', 'status', 'lastUpdated', 'updatedAt'])) ||
+                         (isMedicalOfficer() &&
+                          existing().district == getUserDistrict() &&
+                          incoming().district == getUserDistrict()) ||
+                         isAdmin()
+                       );
+      allow delete: if isAdmin();
+    }
+
+    // 8. MEDICINE STOCK LOGS (Dispensary Consumption Logs)
+    match /medicine_stock_logs/{logId} {
+      allow get: if isValidId(logId) && isSignedIn() && (
+        (isFrontlineWorker() && resource.data.facilityId == getUserFacilityId()) ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        (isFrontlineWorker() && resource.data.facilityId == getUserFacilityId()) ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow create: if isValidId(logId) && isSignedIn() && isValidMedicineStockLog(incoming()) &&
+                       incoming().id == logId && (
+                         (isFrontlineWorker() && incoming().facilityId == getUserFacilityId()) ||
+                         (isMedicalOfficer() && incoming().district == getUserDistrict()) ||
+                         isAdmin()
+                       );
+      allow update, delete: if false; // Immutable audit log
+    }
+
+    // 9. FACILITIES REGISTRY
+    // MedicalOfficers have read/write access to all facilities within their designated district
+    match /facilities/{facilityId} {
+      allow get: if isValidId(facilityId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isValidId(facilityId) && isSignedIn() && isValidFacility(incoming()) &&
+                       incoming().facilityId == facilityId && (
+                         (isMedicalOfficer() && incoming().district == getUserDistrict()) ||
+                         isAdmin()
+                       );
+      allow update: if isValidId(facilityId) && isSignedIn() && isValidFacility(incoming()) &&
+                       incoming().facilityId == existing().facilityId && (
+                         (isMedicalOfficer() &&
+                          existing().district == getUserDistrict() &&
+                          incoming().district == getUserDistrict()) ||
+                         isAdmin()
+                       );
+      allow delete: if isAdmin();
+    }
+
+    // 10. DIAGNOSTIC & COLD-CHAIN EQUIPMENT REGISTRY
+    match /diagnostic_equipment/{equipmentId} {
+      allow get: if isValidId(equipmentId) && isSignedIn() && (
+        (isFrontlineWorker() && resource.data.facilityId == getUserFacilityId()) ||
+        (isMedicalOfficer() && resource.data.district == getUserDistrict()) ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        (isFrontlineWorker() && resource.data.facilityId == getUserFacilityId()) ||
+        (isMedicalOfficer() && resource.data.district == getUserDistrict()) ||
+        isAdmin()
+      );
+      allow create: if isValidId(equipmentId) && isSignedIn() &&
+                       incoming().id == equipmentId && (
+                         (isMedicalOfficer() && incoming().district == getUserDistrict()) ||
+                         isAdmin()
+                       );
+      allow update: if isValidId(equipmentId) && isSignedIn() &&
+                       incoming().id == existing().id && (
+                         (isFrontlineWorker() &&
+                          existing().facilityId == getUserFacilityId() &&
+                          incoming().facilityId == getUserFacilityId() &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'reportedIssue', 'technicianContact', 'lastServicedDate', 'updatedAt'])) ||
+                         (isMedicalOfficer() &&
+                          existing().district == getUserDistrict() &&
+                          incoming().district == getUserDistrict()) ||
+                         isAdmin()
+                       );
+      allow delete: if isAdmin();
+    }
+
+    // 11. ATOMIC INVENTORY TRANSFER LEDGER
+    match /inventory_transfers/{transferId} {
+      allow get: if isValidId(transferId) && isSignedIn() && (
+        (isMedicalOfficer() && resource.data.district == getUserDistrict()) ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        (isMedicalOfficer() && resource.data.district == getUserDistrict()) ||
+        isAdmin()
+      );
+      allow create: if isValidId(transferId) && isSignedIn() && isValidResourceTransfer(incoming()) &&
+                       incoming().id == transferId && (
+                         (isMedicalOfficer() && incoming().district == getUserDistrict()) ||
+                         isAdmin()
+                       );
+      allow update: if isValidId(transferId) && isSignedIn() &&
+                       incoming().id == existing().id &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'digitalSignature', 'updatedAt']) && (
+                         (isMedicalOfficer() &&
+                          existing().district == getUserDistrict() &&
+                          incoming().district == getUserDistrict()) ||
+                         isAdmin()
+                       );
+      allow delete: if false; // Transfer ledger is permanent
+    }
+
+    // 12. CROSS-TIER REFERRAL SLIPS
+    match /referrals/{referralId} {
+      allow get: if isValidId(referralId) && isSignedIn() && (
+        (isPatient() && resource.data.patientId == request.auth.uid) ||
+        isFrontlineWorker() ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        (isPatient() && resource.data.patientId == request.auth.uid) ||
+        isFrontlineWorker() ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow create, update: if isValidId(referralId) && isSignedIn() && (
+        isFrontlineWorker() ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 13. TASKS & APPOINTMENTS (Patient Self-Read)
+    match /tasks/{taskId} {
+      allow get: if isValidId(taskId) && isSignedIn() && (
+        (isPatient() && resource.data.patientId == request.auth.uid) ||
+        isFrontlineWorker() ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        (isPatient() && resource.data.patientId == request.auth.uid) ||
+        isFrontlineWorker() ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow create, update: if isValidId(taskId) && isSignedIn() && (
+        isFrontlineWorker() ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /appointments/{appointmentId} {
+      allow get: if isValidId(appointmentId) && isSignedIn() && (
+        (isPatient() && resource.data.patientId == request.auth.uid) ||
+        isFrontlineWorker() ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        (isPatient() && resource.data.patientId == request.auth.uid) ||
+        isFrontlineWorker() ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow create, update: if isValidId(appointmentId) && isSignedIn() && (
+        isFrontlineWorker() ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 14. SMS ESCALATION ALERTS (Immutable Audit Trail)
+    match /escalation_alerts/{alertId} {
+      allow read: if isValidId(alertId) && isSignedIn() && (
+        (isMedicalOfficer() && resource.data.district == getUserDistrict()) ||
+        isAdmin()
+      );
+      allow create: if isValidId(alertId) && isSignedIn() && (
+        isFrontlineWorker() ||
+        isMedicalOfficer() ||
+        isAdmin()
+      );
+      allow update, delete: if false;
+    }
+  }
+}

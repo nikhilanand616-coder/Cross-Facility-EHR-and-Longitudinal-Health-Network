@@ -1,0 +1,221 @@
+@import "tailwindcss";
+
+@layer base {
+  /* Clean, Minimalist Public Health Canvas */
+  body {
+    background-color: #f8fafc;
+    color: #0f172a;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Universal smooth interaction response on interactive elements */
+  button {
+    transition: all 0.15s ease-in-out;
+  }
+
+  button:not(:disabled):active {
+    transform: scale(0.985);
+  }
+}
+
+/* ==========================================================================
+   MINIMALIST, ACCESSIBLE UI COMPONENT UTILITIES (FLAT & MODERN)
+   ========================================================================== */
+
+/* 1. Clean Minimalist Cards & Containers */
+.card-3d {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+}
+
+.card-3d-lift {
+  transition: border-color 0.15s ease-in-out;
+}
+
+.card-3d-lift:hover {
+  border-color: #cbd5e1;
+}
+
+.card-3d-dark {
+  background: #0f172a;
+  border-radius: 0.75rem;
+  border: 1px solid #1e293b;
+  color: #f8fafc;
+}
+
+/* 2. Modern Minimalist Flat Buttons */
+.btn-3d {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-3d:hover {
+  opacity: 0.92;
+}
+
+.btn-3d:active {
+  transform: scale(0.98);
+}
+
+/* Primary Indigo / Blue Button */
+.btn-3d-indigo {
+  background-color: #2563eb;
+  color: #ffffff;
+  border: 1px solid #1d4ed8;
+}
+.btn-3d-indigo:hover {
+  background-color: #1d4ed8;
+}
+
+/* Emerald Health Button */
+.btn-3d-emerald {
+  background-color: #059669;
+  color: #ffffff;
+  border: 1px solid #047857;
+}
+.btn-3d-emerald:hover {
+  background-color: #047857;
+}
+
+/* Amber Priority Button */
+.btn-3d-amber {
+  background-color: #d97706;
+  color: #ffffff;
+  border: 1px solid #b45309;
+}
+.btn-3d-amber:hover {
+  background-color: #b45309;
+}
+
+/* Rose / Emergency Button */
+.btn-3d-rose {
+  background-color: #e11d48;
+  color: #ffffff;
+  border: 1px solid #be123c;
+}
+.btn-3d-rose:hover {
+  background-color: #be123c;
+}
+
+/* Minimalist White / Secondary Button */
+.btn-3d-white {
+  background-color: #ffffff;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+}
+.btn-3d-white:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+/* Dark Slate Button */
+.btn-3d-dark {
+  background-color: #1e293b;
+  color: #ffffff;
+  border: 1px solid #0f172a;
+}
+.btn-3d-dark:hover {
+  background-color: #0f172a;
+}
+
+/* 3. Minimalist Accessible Inputs & Form Fields */
+.input-3d {
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  transition: border-color 0.15s ease;
+}
+
+.input-3d:focus {
+  background-color: #ffffff;
+  border-color: #2563eb;
+  outline: none;
+}
+
+/* 4. Minimalist Badges & Pills */
+.badge-3d {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+}
+
+/* 5. Minimalist Icon Containers */
+.icon-cube-3d {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+}
+
+/* 6. Minimalist Metric Stat Boxes */
+.stat-cube-3d {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  padding: 1.25rem;
+}
+
+.stat-cube-3d:hover {
+  border-color: #cbd5e1;
+}
+
+/* 7. Minimalist Sticky Header */
+.header-3d {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* 8. Minimalist Clean Segmented Tab Rail */
+.tab-rail-3d {
+  background: #f1f5f9;
+  border-radius: 0.5rem;
+  padding: 0.25rem;
+  border: 1px solid #e2e8f0;
+}
+
+.tab-3d-active {
+  background: #2563eb;
+  color: #ffffff !important;
+  border-radius: 0.375rem;
+}
+
+/* 9. Minimalist Typography */
+.text-3d-emboss,
+.text-3d-glow,
+.text-3d-dark {
+  text-shadow: none !important;
+  filter: none !important;
+}
+
+/* 10. Minimalist Dialog & Modals */
+.modal-3d {
+  background: #ffffff;
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.1);
+}
+
+/* 11. Minimalist Sliders */
+.slider-3d {
+  height: 6px;
+  border-radius: 9999px;
+}
+
